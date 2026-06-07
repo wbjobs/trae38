@@ -5,11 +5,23 @@ import { ModelLoader } from '../components/ModelLoader';
 import { InferenceProgress } from '../components/InferenceProgress';
 import { ResultDisplay } from '../components/ResultDisplay';
 import { CacheManager } from '../components/CacheManager';
+import { StyleSelector } from '../components/StyleSelector';
+import { StructuredDescription } from '../components/StructuredDescription';
 import { useAppStore } from '../store/appStore';
 import { detectBrowser, shouldUseMemoryEfficientMode } from '../utils/browserDetect';
+import { BEAM_SEARCH_CONFIG } from '../types';
 
 const Home: React.FC = () => {
-  const { error, setError } = useAppStore();
+  const {
+    error,
+    setError,
+    descriptionStyle,
+    setDescriptionStyle,
+    structuredDescription,
+    currentDimension,
+    isInferencing,
+    inferenceStep,
+  } = useAppStore();
   const [browserInfo] = useState(() => detectBrowser());
   const [showBrowserWarning, setShowBrowserWarning] = useState(shouldUseMemoryEfficientMode());
 
@@ -85,9 +97,19 @@ const Home: React.FC = () => {
             <ImageUploader />
             <InferenceProgress />
             <ResultDisplay />
+            <StructuredDescription
+              description={structuredDescription}
+              isLoading={isInferencing && inferenceStep === 'decoding'}
+              currentDimension={currentDimension || undefined}
+            />
           </div>
           
           <div className="lg:col-span-2 space-y-6">
+            <StyleSelector
+              selectedStyle={descriptionStyle}
+              onStyleChange={setDescriptionStyle}
+              disabled={isInferencing}
+            />
             <ModelLoader />
             <CacheManager />
             
@@ -107,6 +129,14 @@ const Home: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-cyan-400 mt-0.5">→</span>
+                  <span>搜索算法: Beam Search (beam size = {BEAM_SEARCH_CONFIG.beamSize})</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-fuchsia-400 mt-0.5">→</span>
+                  <span>描述维度: 4个结构化维度</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-400 mt-0.5">→</span>
                   <span>推理引擎: ONNX Runtime Web (WebGL)</span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -115,7 +145,7 @@ const Home: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-cyan-400 mt-0.5">→</span>
-                  <span>归一化: ImageNet mean/std</span>
+                  <span>性能目标: ≤ 3秒</span>
                 </li>
               </ul>
             </div>
