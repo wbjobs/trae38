@@ -1,4 +1,44 @@
 import * as ort from 'onnxruntime-web';
+import { TensorMemoryPool, globalTensorPool } from './memoryPool';
+
+let usePool = true;
+let pool: TensorMemoryPool = globalTensorPool;
+
+export function setTensorPoolUsage(enabled: boolean): void {
+  usePool = enabled;
+}
+
+export function setCustomTensorPool(customPool: TensorMemoryPool): void {
+  pool = customPool;
+  usePool = true;
+}
+
+export function getTensorPool(): TensorMemoryPool {
+  return pool;
+}
+
+export function createTensor(
+  type: 'float32' | 'int32' | 'int64' | 'bool',
+  data: ArrayBufferView,
+  dims: number[]
+): ort.Tensor {
+  if (usePool && pool) {
+    return pool.acquire(type, dims, data);
+  }
+  return new ort.Tensor(type as any, data as any, dims);
+}
+
+export function releaseTensor(tensor: ort.Tensor): void {
+  if (usePool && pool) {
+    pool.release(tensor);
+  } else {
+    disposeTensor(tensor);
+  }
+}
+
+export function releaseTensors(tensors: ort.Tensor[]): void {
+  tensors.forEach((tensor) => releaseTensor(tensor));
+}
 
 export function argmax(arr: Float32Array | number[]): number {
   let maxIndex = 0;
@@ -59,9 +99,9 @@ export function topKSampling(
   return topKIndices[0];
 }
 
-export function createInt32Tensor(data: number[], dims: number[]): any {
+export function createInt32Tensor(data: number[], dims: number[]): ort.Tensor {
   const tensorData = new Int32Array(data);
-  return new ort.Tensor('int32', tensorData, dims);
+  return createTensor('int32', tensorData, dims);
 }
 
 export function disposeTensor(tensor: any): void {
@@ -72,4 +112,13 @@ export function disposeTensor(tensor: any): void {
 
 export function disposeTensors(tensors: any[]): void {
   tensors.forEach((tensor) => disposeTensor(tensor));
+}
+
+export function forceGC(): void {
+  if (typeof (globalThis as any).gc === 'function') {
+    (globalThis as any).gc();
+  }
+  if (pool) {
+    pool.disposeUnused();
+  }
 }

@@ -1,7 +1,24 @@
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
+
+function wasmMimePlugin(): Plugin {
+  return {
+    name: 'wasm-mime-type',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.endsWith('.wasm')) {
+          res.setHeader('Content-Type', 'application/wasm');
+        }
+        if (req.url?.endsWith('.mjs')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        }
+        next();
+      });
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,7 +40,11 @@ export default defineConfig({
       autoThemeTarget: '#root'
     }), 
     tsconfigPaths(),
+    wasmMimePlugin(),
   ],
+  optimizeDeps: {
+    exclude: ['onnxruntime-web'],
+  },
   server: {
     proxy: {
       '/api': {

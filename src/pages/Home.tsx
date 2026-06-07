@@ -1,14 +1,17 @@
-import React, { useEffect } from 'react';
-import { Brain, Shield, Zap, AlertTriangle, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Brain, Shield, Zap, AlertTriangle, X, Info } from 'lucide-react';
 import { ImageUploader } from '../components/ImageUploader';
 import { ModelLoader } from '../components/ModelLoader';
 import { InferenceProgress } from '../components/InferenceProgress';
 import { ResultDisplay } from '../components/ResultDisplay';
 import { CacheManager } from '../components/CacheManager';
 import { useAppStore } from '../store/appStore';
+import { detectBrowser, shouldUseMemoryEfficientMode } from '../utils/browserDetect';
 
 const Home: React.FC = () => {
   const { error, setError } = useAppStore();
+  const [browserInfo] = useState(() => detectBrowser());
+  const [showBrowserWarning, setShowBrowserWarning] = useState(shouldUseMemoryEfficientMode());
 
   useEffect(() => {
     const title = document.querySelector('title');

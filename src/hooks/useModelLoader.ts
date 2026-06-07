@@ -9,9 +9,20 @@ import {
   ProgressCallback,
 } from '../utils/modelChunker';
 import { checkAllChunksCached, getCacheSize, clearAllCachedModels } from '../utils/indexedDB';
+import { detectBrowser, getOptimizedGenerationConfig, shouldUseMemoryEfficientMode } from '../utils/browserDetect';
 
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.simd = true;
+ort.env.wasm.proxy = false;
+
+const browser = detectBrowser();
+const optimizedConfig = getOptimizedGenerationConfig();
+
+if (browser.isFirefox) {
+  (ort.env.wasm as any).maximumSize = 256 * 1024 * 1024;
+} else {
+  (ort.env.wasm as any).maximumSize = 1024 * 1024 * 1024;
+}
 
 export function useModelLoader() {
   const {
@@ -94,10 +105,28 @@ export function useModelLoader() {
       const decoderBuffer = decoderChunk;
 
       const sessionOptions: ort.InferenceSession.SessionOptions = {
-        executionProviders: ['webgl', 'wasm'],
+        executionProviders: browser.isFirefox ? ['wasm'] : ['webgl', 'wasm'],
         graphOptimizationLevel: 'all',
         enableCpuMemArena: true,
+        enableMemPattern: true,
+        extra: {
+          session: {
+            'session.load_model_format': 'ONNX',
+            'session.intra_op_num_threads': '1',
+            'session.inter_op_num_threads': '1',
+          },
+        },
       };
+
+      if (optimizedConfig.memArenaSize) {
+        sessionOptions.extra!.session['cpu_mem_arena_size'] = String(optimizedConfig.memArenaSize);
+      }
+
+      console.debug(`Using execution providers: ${sessionOptions.executionProviders}`, {
+        browser: browser.name,
+        memoryEfficient: shouldUseMemoryEfficientMode(),
+        memoryLimitMB: browser.memoryLimitMB,
+      });
 
       const [encoderSession, decoderSession] = await Promise.all([
         ort.InferenceSession.create(encoderBuffer, sessionOptions),
